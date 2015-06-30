@@ -77,7 +77,7 @@ func (p *Purge) purgeRequest(url string, httpMethod string, purgeMode PurgeMode,
 
 	req, err := http.NewRequest(httpMethod, reqURL, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Failed to create HTTP request, with error: %s", err.Error())
 	}
 
 	if p.OverrideURL != "" {
@@ -94,7 +94,7 @@ func (p *Purge) purgeRequest(url string, httpMethod string, purgeMode PurgeMode,
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Failed to perform HTTP request with error: %s", err.Error())
 	}
 	defer resp.Body.Close()
 
@@ -105,7 +105,7 @@ func (p *Purge) purgeRequest(url string, httpMethod string, purgeMode PurgeMode,
 	dec := json.NewDecoder(resp.Body)
 	var pr PurgeResponse
 	if err := dec.Decode(&pr); err != nil {
-		return "", err
+		return "", fmt.Errorf("Failed to decode JSON with error: %s", err.Error())
 	}
 
 	if pr.Status == nil || *pr.Status != "ok" {
