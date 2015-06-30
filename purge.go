@@ -25,6 +25,11 @@ const (
 	PURGE_API_ENDPOINT string = "https://api.fastly.com"
 )
 
+const (
+	PURGE_HEADER_SOFT_PURGE string = "Fastly-Soft-Purge"
+	PURGE_HEADER_KEY        string = "Fastly-Key"
+)
+
 type Purge struct {
 	APIKey      string
 	OverrideURL string
@@ -73,11 +78,11 @@ func (p *Purge) purgeRequest(url string, httpMethod string, purgeMode PurgeMode,
 	}
 
 	if purgeMode == PURGE_MODE_SOFT {
-		req.Header.Add("Fastly-Soft-Purge", "1")
+		req.Header.Add(PURGE_HEADER_SOFT_PURGE, "1")
 	}
 
 	if p.APIKey != "" {
-		req.Header.Add("Fastly-Key", p.APIKey)
+		req.Header.Add(PURGE_HEADER_KEY, p.APIKey)
 	}
 
 	resp, err := http.DefaultClient.Do(req)

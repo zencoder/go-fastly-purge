@@ -18,9 +18,11 @@ type FastlyPurgeSuite struct {
 }
 
 const (
-	VALID_PURGE_URL       string = "http://www.example.com/test/sample.jpg"
-	VALID_PURGE_STATUS_OK string = "ok"
-	VALID_PURGE_ID        string = "154-1434616760-1946753"
+	VALID_PURGE_URL               string = "http://www.example.com/test/sample.jpg"
+	VALID_PURGE_STATUS_OK         string = "ok"
+	VALID_PURGE_ID                string = "154-1434616760-1946753"
+	VALID_PURGE_HEADER_SOFT_PURGE string = "Fastly-Soft-Purge"
+	VALID_PURGE_HEADER_KEY        string = "Fastly-Key"
 )
 
 func TestFastlyPurgeSuite(t *testing.T) {
@@ -46,7 +48,8 @@ func (s *FastlyPurgeSuite) TestPurgeURLInstant() {
 		assert.Equal(s.T(), "PURGE", r.Method)
 		b, _ := ioutil.ReadAll(r.Body)
 		assert.Equal(s.T(), VALID_PURGE_URL, b)
-		assert.Equal(s.T(), "", r.Header.Get("Fastly-Soft-Purge"))
+		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
+		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseJSON)
 	}))
 	defer ts.Close()
@@ -64,7 +67,8 @@ func (s *FastlyPurgeSuite) TestPurgeURLSoft() {
 		assert.Equal(s.T(), "PURGE", r.Method)
 		b, _ := ioutil.ReadAll(r.Body)
 		assert.Equal(s.T(), VALID_PURGE_URL, b)
-		assert.Equal(s.T(), "1", r.Header.Get("Fastly-Soft-Purge"))
+		assert.Equal(s.T(), "1", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
+		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseJSON)
 	}))
 	defer ts.Close()
