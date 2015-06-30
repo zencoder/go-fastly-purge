@@ -39,15 +39,22 @@ func NewPurge() *Purge {
 	return &Purge{}
 }
 
+func newPurgeWithOverrideURL(overrideURL string) *Purge {
+	return &Purge{
+		OverrideURL: overrideURL,
+	}
+}
+
 func NewPurgeWithAPIKey(apiKey string) *Purge {
 	return &Purge{
 		APIKey: apiKey,
 	}
 }
 
-func newPurgeWithOverrideURL(overrideURL string) *Purge {
+func newPurgeWithOverrideURLAndAPIKey(overrideURL string, apiKey string) *Purge {
 	return &Purge{
 		OverrideURL: overrideURL,
+		APIKey:      apiKey,
 	}
 }
 
