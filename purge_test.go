@@ -1,4 +1,4 @@
-package fastly
+package fastlypurge
 
 import (
 	"encoding/json"
