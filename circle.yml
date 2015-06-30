@@ -2,7 +2,7 @@ checkout:
   post:
     - rm -rf ~/.go_workspace/src/github.com/zencoder
     - mkdir -p ~/.go_workspace/src/github.com/zencoder
-    - cp -R ~/ddbsync ~/.go_workspace/src/github.com/zencoder/go-fastly-purge
+    - cp -R ~/go-fastly-purge ~/.go_workspace/src/github.com/zencoder/go-fastly-purge
 dependencies:
   cache_directories:
     - "~/.rvm/gems"
