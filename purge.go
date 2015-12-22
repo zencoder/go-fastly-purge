@@ -52,7 +52,7 @@ func NewPurgeWithAPIKey(apiKey string) *Purge {
 	}
 }
 
-func newPurgeWithFastlyURLAndAPIKey(fastlyURL string, apiKey string) *Purge {
+func NewPurgeWithFastlyURLAndAPIKey(fastlyURL string, apiKey string) *Purge {
 	return &Purge{
 		FastlyURL: fastlyURL,
 		APIKey:    apiKey,
