@@ -224,7 +224,7 @@ func (s *FastlyPurgeSuite) TestPurgeAllInstant() {
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := NewPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeAll(VALID_PURGE_SERVICE, PURGE_MODE_INSTANT)
@@ -259,7 +259,7 @@ func (s *FastlyPurgeSuite) TestPurgeAllInstantErrorNoService() {
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := NewPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeAll("", PURGE_MODE_INSTANT)
@@ -277,7 +277,7 @@ func (s *FastlyPurgeSuite) TestPurgeAllSoft() {
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := NewPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeAll(VALID_PURGE_SERVICE, PURGE_MODE_SOFT)
@@ -294,7 +294,7 @@ func (s *FastlyPurgeSuite) TestPurgeKeyInstant() {
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := NewPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeKey(VALID_PURGE_SERVICE, VALID_PURGE_KEY, PURGE_MODE_INSTANT)
@@ -329,7 +329,7 @@ func (s *FastlyPurgeSuite) TestPurgeKeyInstantErrorNoService() {
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := NewPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeKey("", VALID_PURGE_KEY, PURGE_MODE_INSTANT)
@@ -347,7 +347,7 @@ func (s *FastlyPurgeSuite) TestPurgeKeyInstantErrorNoKey() {
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := NewPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeKey(VALID_PURGE_SERVICE, "", PURGE_MODE_INSTANT)
@@ -365,7 +365,7 @@ func (s *FastlyPurgeSuite) TestPurgeKeySoft() {
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := NewPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeKey(VALID_PURGE_SERVICE, VALID_PURGE_KEY, PURGE_MODE_SOFT)
