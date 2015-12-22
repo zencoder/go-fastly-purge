@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,7 +19,7 @@ type FastlyPurgeSuite struct {
 }
 
 const (
-	VALID_PURGE_URL               string = "http://www.example.com/test/sample.jpg"
+	VALID_PURGE_PATH              string = "/test/sample.jpg"
 	VALID_PURGE_STATUS_OK         string = "ok"
 	VALID_PURGE_ID                string = "154-1434616760-1946753"
 	VALID_PURGE_SERVICE           string = "3h16jblNfHsGtnGcUxA32F"
@@ -36,8 +35,8 @@ const (
 )
 
 var (
-	VALID_PURGE_ALL_URL string = fmt.Sprintf("%s/service/%s/purge_all", VALID_PURGE_API_ENDPOINT, VALID_PURGE_SERVICE)
-	VALID_PURGE_KEY_URL string = fmt.Sprintf("%s/service/%s/purge/%s", VALID_PURGE_API_ENDPOINT, VALID_PURGE_SERVICE, VALID_PURGE_KEY)
+	VALID_PURGE_ALL_PATH string = fmt.Sprintf("/service/%s/purge_all", VALID_PURGE_SERVICE)
+	VALID_PURGE_KEY_PATH string = fmt.Sprintf("/service/%s/purge/%s", VALID_PURGE_SERVICE, VALID_PURGE_KEY)
 )
 
 func TestFastlyPurgeSuite(t *testing.T) {
@@ -66,39 +65,48 @@ func (s *FastlyPurgeSuite) TestNewPurge() {
 	p := NewPurge()
 	assert.NotNil(s.T(), p)
 	assert.Equal(s.T(), "", p.APIKey)
-	assert.Equal(s.T(), "", p.OverrideURL)
+	assert.Equal(s.T(), "", p.FastlyURL)
 }
 
 func (s *FastlyPurgeSuite) TestNewPurgeWithAPIKey() {
 	p := NewPurgeWithAPIKey(VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 	assert.Equal(s.T(), VALID_PURGE_API_KEY, p.APIKey)
-	assert.Equal(s.T(), "", p.OverrideURL)
+	assert.Equal(s.T(), VALID_PURGE_API_ENDPOINT, p.FastlyURL)
 }
 
 func (s *FastlyPurgeSuite) TestPurgeRequestErrorInvalidPurgeMode() {
 	p := NewPurge()
-	id, err := p.purgeRequest(VALID_PURGE_URL, "PURGE", 5, true)
+	id, err := p.purgeRequest(VALID_PURGE_PATH, "PURGE", 5, true)
 	assert.NotNil(s.T(), err)
 	assert.Equal(s.T(), errors.New("Invalid Purge Mode"), err)
 	assert.Equal(s.T(), "", id)
 }
 
+func (s *FastlyPurgeSuite) TestPurgeRequestErrorInvalidURL() {
+	p := NewPurge()
+	id, err := p.PurgeURL("", PURGE_MODE_INSTANT)
+	assert.NotNil(s.T(), err)
+	assert.Contains(s.T(), err.Error(), "Failed to parse URL")
+	assert.Contains(s.T(), err.Error(), "empty url")
+	assert.Equal(s.T(), "", id)
+}
+
 func (s *FastlyPurgeSuite) TestPurgeURLInstant() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		println(r.URL.Host)
 		assert.Equal(s.T(), "PURGE", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURL(ts.URL)
+	p := newPurgeWithFastlyURL(ts.URL)
 	assert.NotNil(s.T(), p)
 
-	id, err := p.PurgeURL(VALID_PURGE_URL, PURGE_MODE_INSTANT)
+	id, err := p.PurgeURL(ts.URL+VALID_PURGE_PATH, PURGE_MODE_INSTANT)
 	assert.Nil(s.T(), err)
 	assert.Equal(s.T(), VALID_PURGE_ID, id)
 }
@@ -106,8 +114,7 @@ func (s *FastlyPurgeSuite) TestPurgeURLInstant() {
 func (s *FastlyPurgeSuite) TestPurgeURLInstantErrorJSONDecode() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "PURGE", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_KEY))
 		type InvalidJSON struct {
@@ -119,10 +126,10 @@ func (s *FastlyPurgeSuite) TestPurgeURLInstantErrorJSONDecode() {
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURL(ts.URL)
+	p := newPurgeWithFastlyURL(ts.URL)
 	assert.NotNil(s.T(), p)
 
-	id, err := p.PurgeURL(VALID_PURGE_URL, PURGE_MODE_INSTANT)
+	id, err := p.PurgeURL(ts.URL+VALID_PURGE_PATH, PURGE_MODE_INSTANT)
 	assert.NotNil(s.T(), err)
 	assert.Equal(s.T(), errors.New("Failed to decode JSON with error: EOF"), err)
 	assert.Equal(s.T(), "", id)
@@ -131,18 +138,17 @@ func (s *FastlyPurgeSuite) TestPurgeURLInstantErrorJSONDecode() {
 func (s *FastlyPurgeSuite) TestPurgeURLInstantError500ResponseCode() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "PURGE", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_KEY))
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURL(ts.URL)
+	p := newPurgeWithFastlyURL(ts.URL)
 	assert.NotNil(s.T(), p)
 
-	id, err := p.PurgeURL(VALID_PURGE_URL, PURGE_MODE_INSTANT)
+	id, err := p.PurgeURL(ts.URL+VALID_PURGE_PATH, PURGE_MODE_INSTANT)
 	assert.NotNil(s.T(), err)
 	assert.Equal(s.T(), errors.New("Invalid response code, expected 200, got 500"), err)
 	assert.Equal(s.T(), "", id)
@@ -151,8 +157,7 @@ func (s *FastlyPurgeSuite) TestPurgeURLInstantError500ResponseCode() {
 func (s *FastlyPurgeSuite) TestPurgeURLInstantErrorInvalidStatus() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "PURGE", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_KEY))
 		status := "error"
@@ -163,10 +168,10 @@ func (s *FastlyPurgeSuite) TestPurgeURLInstantErrorInvalidStatus() {
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURL(ts.URL)
+	p := newPurgeWithFastlyURL(ts.URL)
 	assert.NotNil(s.T(), p)
 
-	id, err := p.PurgeURL(VALID_PURGE_URL, PURGE_MODE_INSTANT)
+	id, err := p.PurgeURL(ts.URL+VALID_PURGE_PATH, PURGE_MODE_INSTANT)
 	assert.NotNil(s.T(), err)
 	assert.Equal(s.T(), errors.New("Purge failed with Status, error"), err)
 	assert.Equal(s.T(), "", id)
@@ -175,18 +180,17 @@ func (s *FastlyPurgeSuite) TestPurgeURLInstantErrorInvalidStatus() {
 func (s *FastlyPurgeSuite) TestPurgeURLInstantErrorNoID() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "PURGE", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURL(ts.URL)
+	p := newPurgeWithFastlyURL(ts.URL)
 	assert.NotNil(s.T(), p)
 
-	id, err := p.PurgeURL(VALID_PURGE_URL, PURGE_MODE_INSTANT)
+	id, err := p.PurgeURL(ts.URL+VALID_PURGE_PATH, PURGE_MODE_INSTANT)
 	assert.NotNil(s.T(), err)
 	assert.Equal(s.T(), errors.New("No ID returned for Purge"), err)
 	assert.Equal(s.T(), "", id)
@@ -195,18 +199,17 @@ func (s *FastlyPurgeSuite) TestPurgeURLInstantErrorNoID() {
 func (s *FastlyPurgeSuite) TestPurgeURLSoft() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "PURGE", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_PATH, r.URL.Path)
 		assert.Equal(s.T(), "1", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURL(ts.URL)
+	p := newPurgeWithFastlyURL(ts.URL)
 	assert.NotNil(s.T(), p)
 
-	id, err := p.PurgeURL(VALID_PURGE_URL, PURGE_MODE_SOFT)
+	id, err := p.PurgeURL(ts.URL+VALID_PURGE_PATH, PURGE_MODE_SOFT)
 	assert.Nil(s.T(), err)
 	assert.Equal(s.T(), VALID_PURGE_ID, id)
 }
@@ -214,15 +217,14 @@ func (s *FastlyPurgeSuite) TestPurgeURLSoft() {
 func (s *FastlyPurgeSuite) TestPurgeAllInstant() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "POST", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_ALL_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_ALL_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), VALID_PURGE_API_KEY, r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeAll(VALID_PURGE_SERVICE, PURGE_MODE_INSTANT)
@@ -232,15 +234,14 @@ func (s *FastlyPurgeSuite) TestPurgeAllInstant() {
 func (s *FastlyPurgeSuite) TestPurgeAllInstantErrorNoAPIKey() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "POST", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_ALL_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_ALL_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), VALID_PURGE_API_KEY, r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURL(ts.URL)
+	p := newPurgeWithFastlyURL(ts.URL)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeAll(VALID_PURGE_SERVICE, PURGE_MODE_INSTANT)
@@ -251,15 +252,14 @@ func (s *FastlyPurgeSuite) TestPurgeAllInstantErrorNoAPIKey() {
 func (s *FastlyPurgeSuite) TestPurgeAllInstantErrorNoService() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "POST", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_ALL_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_ALL_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), VALID_PURGE_API_KEY, r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeAll("", PURGE_MODE_INSTANT)
@@ -270,15 +270,14 @@ func (s *FastlyPurgeSuite) TestPurgeAllInstantErrorNoService() {
 func (s *FastlyPurgeSuite) TestPurgeAllSoft() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "POST", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_ALL_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_ALL_PATH, r.URL.Path)
 		assert.Equal(s.T(), "1", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), VALID_PURGE_API_KEY, r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeAll(VALID_PURGE_SERVICE, PURGE_MODE_SOFT)
@@ -288,15 +287,14 @@ func (s *FastlyPurgeSuite) TestPurgeAllSoft() {
 func (s *FastlyPurgeSuite) TestPurgeKeyInstant() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "POST", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_KEY_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_KEY_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), VALID_PURGE_API_KEY, r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeKey(VALID_PURGE_SERVICE, VALID_PURGE_KEY, PURGE_MODE_INSTANT)
@@ -306,15 +304,14 @@ func (s *FastlyPurgeSuite) TestPurgeKeyInstant() {
 func (s *FastlyPurgeSuite) TestPurgeKeyInstantErrorNoAPIKey() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "POST", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_KEY_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_KEY_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), VALID_PURGE_API_KEY, r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURL(ts.URL)
+	p := newPurgeWithFastlyURL(ts.URL)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeKey(VALID_PURGE_SERVICE, VALID_PURGE_KEY, PURGE_MODE_INSTANT)
@@ -325,15 +322,14 @@ func (s *FastlyPurgeSuite) TestPurgeKeyInstantErrorNoAPIKey() {
 func (s *FastlyPurgeSuite) TestPurgeKeyInstantErrorNoService() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "POST", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_KEY_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_KEY_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), VALID_PURGE_API_KEY, r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeKey("", VALID_PURGE_KEY, PURGE_MODE_INSTANT)
@@ -344,15 +340,14 @@ func (s *FastlyPurgeSuite) TestPurgeKeyInstantErrorNoService() {
 func (s *FastlyPurgeSuite) TestPurgeKeyInstantErrorNoKey() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "POST", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_KEY_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_KEY_PATH, r.URL.Path)
 		assert.Equal(s.T(), "", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), VALID_PURGE_API_KEY, r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeKey(VALID_PURGE_SERVICE, "", PURGE_MODE_INSTANT)
@@ -363,15 +358,14 @@ func (s *FastlyPurgeSuite) TestPurgeKeyInstantErrorNoKey() {
 func (s *FastlyPurgeSuite) TestPurgeKeySoft() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(s.T(), "POST", r.Method)
-		b, _ := ioutil.ReadAll(r.Body)
-		assert.Equal(s.T(), VALID_PURGE_KEY_URL, string(b))
+		assert.Equal(s.T(), VALID_PURGE_KEY_PATH, r.URL.Path)
 		assert.Equal(s.T(), "1", r.Header.Get(VALID_PURGE_HEADER_SOFT_PURGE))
 		assert.Equal(s.T(), VALID_PURGE_API_KEY, r.Header.Get(VALID_PURGE_HEADER_KEY))
 		fmt.Fprintf(w, s.validResponseNoIDJSON)
 	}))
 	defer ts.Close()
 
-	p := newPurgeWithOverrideURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
+	p := newPurgeWithFastlyURLAndAPIKey(ts.URL, VALID_PURGE_API_KEY)
 	assert.NotNil(s.T(), p)
 
 	err := p.PurgeKey(VALID_PURGE_SERVICE, VALID_PURGE_KEY, PURGE_MODE_SOFT)
