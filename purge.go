@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 )
@@ -57,14 +56,6 @@ func NewPurgeWithFastlyURLAndAPIKey(fastlyURL string, apiKey string) *Purge {
 		FastlyURL: fastlyURL,
 		APIKey:    apiKey,
 	}
-}
-
-type nopCloser struct {
-	io.Reader
-}
-
-func (nopCloser) Close() error {
-	return nil
 }
 
 func (p *Purge) purgeRequest(reqURL string, httpMethod string, purgeMode PurgeMode, idExpected bool) (string, error) {
