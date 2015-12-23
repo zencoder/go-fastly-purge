@@ -1,12 +1,11 @@
 package fastlypurge
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
+	"net/url"
 )
 
 type PurgeResponse struct {
@@ -31,57 +30,47 @@ const (
 )
 
 type Purge struct {
-	APIKey      string
-	OverrideURL string
+	APIKey    string
+	FastlyURL string
 }
 
 func NewPurge() *Purge {
 	return &Purge{}
 }
 
-func newPurgeWithOverrideURL(overrideURL string) *Purge {
+func newPurgeWithFastlyURL(fastlyURL string) *Purge {
 	return &Purge{
-		OverrideURL: overrideURL,
+		FastlyURL: fastlyURL,
 	}
 }
 
 func NewPurgeWithAPIKey(apiKey string) *Purge {
 	return &Purge{
-		APIKey: apiKey,
+		FastlyURL: PURGE_API_ENDPOINT,
+		APIKey:    apiKey,
 	}
 }
 
-func newPurgeWithOverrideURLAndAPIKey(overrideURL string, apiKey string) *Purge {
+func NewPurgeWithFastlyURLAndAPIKey(fastlyURL string, apiKey string) *Purge {
 	return &Purge{
-		OverrideURL: overrideURL,
-		APIKey:      apiKey,
+		FastlyURL: fastlyURL,
+		APIKey:    apiKey,
 	}
 }
 
-type nopCloser struct {
-	io.Reader
-}
-
-func (nopCloser) Close() error { return nil }
-
-func (p *Purge) purgeRequest(url string, httpMethod string, purgeMode PurgeMode, idExpected bool) (string, error) {
+func (p *Purge) purgeRequest(reqURL string, httpMethod string, purgeMode PurgeMode, idExpected bool) (string, error) {
 	if purgeMode != PURGE_MODE_INSTANT && purgeMode != PURGE_MODE_SOFT {
 		return "", errors.New("Invalid Purge Mode")
 	}
 
-	// If the OverrideURL is set use this, to allow for testing
-	reqURL := url
-	if p.OverrideURL != "" {
-		reqURL = p.OverrideURL
+	_, err := url.ParseRequestURI(reqURL)
+	if err != nil {
+		return "", fmt.Errorf("Failed to parse URL, with error: %s", err)
 	}
 
 	req, err := http.NewRequest(httpMethod, reqURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("Failed to create HTTP request, with error: %s", err.Error())
-	}
-
-	if p.OverrideURL != "" {
-		req.Body = nopCloser{bytes.NewBufferString(url)}
 	}
 
 	if purgeMode == PURGE_MODE_SOFT {
@@ -135,7 +124,7 @@ func (p *Purge) PurgeAll(service string, purgeMode PurgeMode) error {
 		return errors.New("Service is required for Purge All")
 	}
 
-	url := fmt.Sprintf("%s/service/%s/purge_all", PURGE_API_ENDPOINT, service)
+	url := fmt.Sprintf("%s/service/%s/purge_all", p.FastlyURL, service)
 
 	_, err := p.purgeRequest(url, "POST", purgeMode, false)
 
@@ -153,7 +142,7 @@ func (p *Purge) PurgeKey(service string, key string, purgeMode PurgeMode) error 
 		return errors.New("Key is required for Purge By Key")
 	}
 
-	url := fmt.Sprintf("%s/service/%s/purge/%s", PURGE_API_ENDPOINT, service, key)
+	url := fmt.Sprintf("%s/service/%s/purge/%s", p.FastlyURL, service, key)
 
 	_, err := p.purgeRequest(url, "POST", purgeMode, false)
 
