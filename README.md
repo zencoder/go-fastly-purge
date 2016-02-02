@@ -11,4 +11,14 @@ Fastly documentation at https://docs.fastly.com/api/purge
 Install
 -------
 
-	go get github.com/zencoder/go-fastly-purge
+This project uses [Glide](https://github.com/Masterminds/glide) to manage it's dependencies. Please refer to the glide docs to see how to install glide.
+
+```bash
+mkdir -p $GOPATH/github.com/zencoder
+cd $GOPATH/github.com/zencoder
+git clone https://github.com/zencoder/go-fastly-purge
+cd go-fastly-purge
+export GO15VENDOREXPERIMENT=1
+glide install
+go install ./...
+```
