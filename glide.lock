@@ -1,0 +1,12 @@
+hash: f415c513a9e813408d4147b34e9d38faef92a3815c6ef0d55aa39dc1f12be7e3
+updated: 2016-02-02T11:20:25.809757939Z
+imports:
+- name: github.com/stretchr/objx
+  version: 1a9d0bb9f541897e62256577b352fdbc1fb4fd94
+- name: github.com/stretchr/testify
+  version: c478a808a1b37e10c82f71a2172728f8742bad51
+  subpackages:
+  - assert
+  - require
+  - suite
+devImports: []
