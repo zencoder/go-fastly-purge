@@ -18,7 +18,6 @@ mkdir -p $GOPATH/github.com/zencoder
 cd $GOPATH/github.com/zencoder
 git clone https://github.com/zencoder/go-fastly-purge
 cd go-fastly-purge
-export GO15VENDOREXPERIMENT=1
 glide install
 go install ./...
 ```
